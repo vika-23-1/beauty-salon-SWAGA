@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Кабинет мастера — SWAGA Salon</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">✂️ SWAGA Salon</a>
+  <div class="nav-user">
+    <span id="userName"></span>
+    <span class="badge badge-master">Мастер</span>
+    <button class="btn btn-outline" style="color:white;border-color:rgba(255,255,255,0.7);" onclick="Auth.logout()">Выйти</button>
+  </div>
+</nav>
+
+<div class="dashboard">
+  <div class="dashboard-header">
+    <div>
+      <h1>Кабинет мастера</h1>
+      <div class="welcome" id="welcome"></div>
+    </div>
+  </div>
+
+  <div class="panel panel-full">
+    <h2>📅 Расписание на сегодня и будущие записи</h2>
+    <div id="appointmentsList">
+      <div class="loading">Загрузка...</div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/utils.js"></script>
+<script>
+  const user = Auth.requireAuth('master');
+  if (!user) throw new Error('Not authenticated');
+
+  document.getElementById('userName').textContent = user.name;
+  document.getElementById('welcome').textContent = `Добро пожаловать, ${user.name}!`;
+
+  const token = Auth.getToken();
+
+  async function loadAppointments() {
+    try {
+      const appointments = await api.getAppointments(token);
+      const container = document.getElementById('appointmentsList');
+      if (appointments.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>Нет предстоящих записей</p></div>';
+        return;
+      }
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr><th>Дата</th><th>Время</th><th>Клиент</th><th>Телефон</th><th>Услуга</th><th>Длительность</th><th>Стоимость</th></tr>
+          </thead>
+          <tbody>
+            ${appointments.map(a => `
+              <tr>
+                <td>${Utils.formatDate(a.date)}</td>
+                <td>${Utils.formatTime(a.time)}</td>
+                <td>${a.client_name}</td>
+                <td>${a.client_phone}</td>
+                <td>${a.service_name}</td>
+                <td>${a.duration} мин</td>
+                <td>${a.price} ₽</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } catch (e) {
+      document.getElementById('appointmentsList').innerHTML = '<p style="color:red">Ошибка загрузки</p>';
+    }
+  }
+
+  loadAppointments();
+</script>
+</body>
+</html>

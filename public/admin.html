@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Панель администратора — SWAGA Salon</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">✂️ SWAGA Salon</a>
+  <div class="nav-user">
+    <span id="userName"></span>
+    <span class="badge badge-admin">Администратор</span>
+    <button class="btn btn-outline" style="color:white;border-color:rgba(255,255,255,0.7);" onclick="Auth.logout()">Выйти</button>
+  </div>
+</nav>
+
+<div class="dashboard">
+  <div class="dashboard-header">
+    <h1>Панель администратора</h1>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('appointments')">📅 Записи</button>
+    <button class="tab-btn" onclick="showTab('services')">💄 Услуги</button>
+    <button class="tab-btn" onclick="showTab('masters')">👩‍🎨 Мастера</button>
+  </div>
+
+  <!-- APPOINTMENTS TAB -->
+  <div id="tab-appointments" class="tab-content active">
+    <div class="panel">
+      <h2>Все активные записи</h2>
+      <div id="appointmentsList"><div class="loading">Загрузка...</div></div>
+    </div>
+  </div>
+
+  <!-- SERVICES TAB -->
+  <div id="tab-services" class="tab-content">
+    <div class="panel">
+      <h2>Управление услугами</h2>
+      <div id="svcError" class="alert alert-error"></div>
+      <div class="add-form">
+        <div class="form-group">
+          <label>Название</label>
+          <input type="text" id="svcName" placeholder="Название услуги">
+        </div>
+        <div class="form-group">
+          <label>Длительность (мин)</label>
+          <input type="number" id="svcDuration" placeholder="60" min="15" step="15">
+        </div>
+        <div class="form-group">
+          <label>Цена (₽)</label>
+          <input type="number" id="svcPrice" placeholder="1500" min="0">
+        </div>
+        <button class="btn btn-primary" onclick="addService()">Добавить</button>
+      </div>
+      <div id="servicesList"><div class="loading">Загрузка...</div></div>
+    </div>
+  </div>
+
+  <!-- MASTERS TAB -->
+  <div id="tab-masters" class="tab-content">
+    <div class="panel">
+      <h2>Управление мастерами</h2>
+      <div id="masterError" class="alert alert-error"></div>
+      <div class="add-form">
+        <div class="form-group">
+          <label>Имя</label>
+          <input type="text" id="masterName" placeholder="Имя мастера">
+        </div>
+        <div class="form-group">
+          <label>Телефон</label>
+          <input type="tel" id="masterPhone" placeholder="+79001234567">
+        </div>
+        <div class="form-group">
+          <label>Пароль</label>
+          <input type="password" id="masterPassword" placeholder="Пароль">
+        </div>
+        <button class="btn btn-primary" onclick="addMaster()">Добавить</button>
+      </div>
+      <div id="mastersList"><div class="loading">Загрузка...</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/utils.js"></script>
+<script>
+  const user = Auth.requireAuth('admin');
+  if (!user) throw new Error('Not authenticated');
+
+  document.getElementById('userName').textContent = user.name;
+  const token = Auth.getToken();
+
+  function showTab(name) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${name}`).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  async function loadAppointments() {
+    try {
+      const appointments = await api.getAppointments(token);
+      const container = document.getElementById('appointmentsList');
+      if (appointments.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>Нет активных записей</p></div>';
+        return;
+      }
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr><th>Дата</th><th>Время</th><th>Клиент</th><th>Телефон</th><th>Мастер</th><th>Услуга</th><th>Стоимость</th><th></th></tr>
+          </thead>
+          <tbody>
+            ${appointments.map(a => `
+              <tr>
+                <td>${Utils.formatDate(a.date)}</td>
+                <td>${Utils.formatTime(a.time)}</td>
+                <td>${a.client_name}</td>
+                <td>${a.client_phone}</td>
+                <td>${a.master_name}</td>
+                <td>${a.service_name}</td>
+                <td>${a.price} ₽</td>
+                <td><button class="btn btn-danger btn-sm" onclick="cancelAppointment(${a.id})">Отменить</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } catch (e) {
+      document.getElementById('appointmentsList').innerHTML = '<p style="color:red">Ошибка загрузки</p>';
+    }
+  }
+
+  async function cancelAppointment(id) {
+    if (!confirm('Отменить запись?')) return;
+    try {
+      await api.deleteAppointment(id, token);
+      loadAppointments();
+    } catch (e) { alert(e.message); }
+  }
+
+  async function loadServices() {
+    try {
+      const services = await api.getServices(token);
+      const container = document.getElementById('servicesList');
+      if (services.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>Нет услуг</p></div>';
+        return;
+      }
+      container.innerHTML = `
+        <table>
+          <thead><tr><th>Название</th><th>Длительность</th><th>Цена</th><th></th></tr></thead>
+          <tbody>
+            ${services.map(s => `
+              <tr>
+                <td>${s.name}</td>
+                <td>${s.duration} мин</td>
+                <td>${s.price} ₽</td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteService(${s.id})">Удалить</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } catch (e) {
+      document.getElementById('servicesList').innerHTML = '<p style="color:red">Ошибка загрузки</p>';
+    }
+  }
+
+  async function addService() {
+    Utils.hideError('svcError');
+    const name = document.getElementById('svcName').value.trim();
+    const duration = parseInt(document.getElementById('svcDuration').value);
+    const price = parseInt(document.getElementById('svcPrice').value);
+    if (!name || !duration || !price) {
+      Utils.showError('svcError', 'Заполните все поля');
+      return;
+    }
+    try {
+      await api.addService({ name, duration, price }, token);
+      document.getElementById('svcName').value = '';
+      document.getElementById('svcDuration').value = '';
+      document.getElementById('svcPrice').value = '';
+      loadServices();
+    } catch (e) { Utils.showError('svcError', e.message); }
+  }
+
+  async function deleteService(id) {
+    if (!confirm('Удалить услугу?')) return;
+    try {
+      await api.deleteService(id, token);
+      loadServices();
+    } catch (e) { alert(e.message); }
+  }
+
+  async function loadMasters() {
+    try {
+      const masters = await api.getMasters(token);
+      const container = document.getElementById('mastersList');
+      if (masters.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>Нет мастеров</p></div>';
+        return;
+      }
+      container.innerHTML = `
+        <table>
+          <thead><tr><th>Имя</th><th>Телефон</th><th></th></tr></thead>
+          <tbody>
+            ${masters.map(m => `
+              <tr>
+                <td>${m.name}</td>
+                <td>${m.phone}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteMaster(${m.id})">Удалить</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } catch (e) {
+      document.getElementById('mastersList').innerHTML = '<p style="color:red">Ошибка загрузки</p>';
+    }
+  }
+
+  async function addMaster() {
+    Utils.hideError('masterError');
+    const name = document.getElementById('masterName').value.trim();
+    const phone = document.getElementById('masterPhone').value.trim();
+    const password = document.getElementById('masterPassword').value;
+    if (!name || !phone || !password) {
+      Utils.showError('masterError', 'Заполните все поля');
+      return;
+    }
+    try {
+      await api.addMaster({ name, phone, password }, token);
+      document.getElementById('masterName').value = '';
+      document.getElementById('masterPhone').value = '';
+      document.getElementById('masterPassword').value = '';
+      loadMasters();
+    } catch (e) { Utils.showError('masterError', e.message); }
+  }
+
+  async function deleteMaster(id) {
+    if (!confirm('Удалить мастера?')) return;
+    try {
+      await api.deleteMaster(id, token);
+      loadMasters();
+    } catch (e) { alert(e.message); }
+  }
+
+  loadAppointments();
+  loadServices();
+  loadMasters();
+</script>
+</body>
+</html>

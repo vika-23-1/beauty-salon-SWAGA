@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Личный кабинет — SWAGA Salon</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">✂️ SWAGA Salon</a>
+  <div class="nav-user">
+    <span id="userName"></span>
+    <button class="btn btn-outline" style="color:white;border-color:rgba(255,255,255,0.7);" onclick="Auth.logout()">Выйти</button>
+  </div>
+</nav>
+
+<div class="dashboard">
+  <div class="dashboard-header">
+    <div>
+      <h1>Личный кабинет</h1>
+      <div class="welcome" id="welcome"></div>
+    </div>
+  </div>
+
+  <div class="dashboard-grid">
+    <!-- Booking form -->
+    <div class="panel">
+      <h2>📅 Записаться на приём</h2>
+      <div id="bookError" class="alert alert-error"></div>
+      <div id="bookSuccess" class="alert alert-success"></div>
+      <form id="bookingForm" class="booking-form">
+        <div class="form-group">
+          <label for="service">Услуга</label>
+          <select id="service" required>
+            <option value="">Выберите услугу</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="master">Мастер</label>
+          <select id="master" required>
+            <option value="">Выберите мастера</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="date">Дата</label>
+          <input type="date" id="date" required>
+        </div>
+        <div class="form-group">
+          <label for="time">Время (10:00–20:00)</label>
+          <select id="time" required>
+            <option value="">Выберите время</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Записаться</button>
+      </form>
+    </div>
+
+    <!-- My appointments -->
+    <div class="panel">
+      <h2>📋 Мои записи</h2>
+      <div id="appointmentsList">
+        <div class="loading">Загрузка...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/utils.js"></script>
+<script>
+  const user = Auth.requireAuth('client');
+  if (!user) throw new Error('Not authenticated');
+
+  document.getElementById('userName').textContent = user.name;
+  document.getElementById('welcome').textContent = `Добро пожаловать, ${user.name}!`;
+
+  const token = Auth.getToken();
+
+  // Populate time slots
+  const timeSelect = document.getElementById('time');
+  for (let h = 10; h < 20; h++) {
+    for (let m of ['00', '30']) {
+      const val = `${String(h).padStart(2,'0')}:${m}`;
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = val;
+      timeSelect.appendChild(opt);
+    }
+  }
+
+  // Set min date to today
+  document.getElementById('date').min = Utils.getTodayDate();
+
+  async function loadServices() {
+    try {
+      const services = await api.getServices(token);
+      const sel = document.getElementById('service');
+      services.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = `${s.name} — ${s.duration} мин, ${s.price} ₽`;
+        sel.appendChild(opt);
+      });
+    } catch (e) { console.error(e); }
+  }
+
+  async function loadMasters() {
+    try {
+      const masters = await api.getMasters(token);
+      const sel = document.getElementById('master');
+      masters.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        sel.appendChild(opt);
+      });
+    } catch (e) { console.error(e); }
+  }
+
+  async function loadAppointments() {
+    try {
+      const appointments = await api.getAppointments(token);
+      const container = document.getElementById('appointmentsList');
+      if (appointments.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>Нет активных записей</p></div>';
+        return;
+      }
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr><th>Дата</th><th>Время</th><th>Услуга</th><th>Мастер</th><th></th></tr>
+          </thead>
+          <tbody>
+            ${appointments.map(a => `
+              <tr>
+                <td>${Utils.formatDate(a.date)}</td>
+                <td>${Utils.formatTime(a.time)}</td>
+                <td>${a.service_name}</td>
+                <td>${a.master_name}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="cancelAppointment(${a.id})">Отменить</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } catch (e) {
+      document.getElementById('appointmentsList').innerHTML = '<p style="color:red">Ошибка загрузки</p>';
+    }
+  }
+
+  async function cancelAppointment(id) {
+    if (!confirm('Отменить запись?')) return;
+    try {
+      await api.deleteAppointment(id, token);
+      loadAppointments();
+    } catch (e) { alert(e.message); }
+  }
+
+  document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    Utils.hideError('bookError');
+    Utils.hideError('bookSuccess');
+    const service_id = parseInt(document.getElementById('service').value);
+    const master_id = parseInt(document.getElementById('master').value);
+    const date = document.getElementById('date').value;
+    const time = document.getElementById('time').value;
+    try {
+      await api.createAppointment({ service_id, master_id, date, time }, token);
+      Utils.showError('bookSuccess', 'Запись успешно создана!');
+      document.getElementById('bookingForm').reset();
+      document.getElementById('date').min = Utils.getTodayDate();
+      loadAppointments();
+    } catch (err) {
+      Utils.showError('bookError', err.message);
+    }
+  });
+
+  loadServices();
+  loadMasters();
+  loadAppointments();
+</script>
+</body>
+</html>
