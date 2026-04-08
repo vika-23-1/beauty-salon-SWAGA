@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-const rateLimit = require('express-rate-limit');
 const db = require('./db');
 
 const authRoutes = require('./routes/auth');
@@ -13,14 +12,11 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
-const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
-
 const authRouter = authRoutes(db);
-app.use('/', authLimiter, authRouter);
-app.use('/services', apiLimiter, servicesRoutes(db));
-app.use('/masters', apiLimiter, mastersRoutes(db));
-app.use('/appointments', apiLimiter, appointmentsRoutes(db));
+app.use('/', authRouter);
+app.use('/services', servicesRoutes(db));
+app.use('/masters', mastersRoutes(db));
+app.use('/appointments', appointmentsRoutes(db));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
