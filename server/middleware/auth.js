@@ -1,7 +1,8 @@
+const crypto = require('crypto');
 const sessions = new Map();
 
 function createSession(userId) {
-  const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+  const token = crypto.randomBytes(32).toString('hex');
   sessions.set(token, userId);
   return token;
 }
