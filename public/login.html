@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Вход — SWAGA Salon</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav>
+  <a href="/" class="logo">✂️ SWAGA Salon</a>
+  <div class="nav-links">
+    <a href="/register.html">Регистрация</a>
+  </div>
+</nav>
+
+<div class="form-container">
+  <h2>Добро пожаловать</h2>
+  <p class="subtitle">Войдите в свой аккаунт</p>
+
+  <div id="error" class="alert alert-error"></div>
+
+  <form id="loginForm">
+    <div class="form-group">
+      <label for="phone">Номер телефона</label>
+      <input type="tel" id="phone" placeholder="+79001234567" required>
+    </div>
+    <div class="form-group">
+      <label for="password">Пароль</label>
+      <input type="password" id="password" placeholder="Введите пароль" required>
+    </div>
+    <button type="submit" class="btn btn-primary form-submit">Войти</button>
+  </form>
+
+  <div class="form-footer">
+    Нет аккаунта? <a href="/register.html">Зарегистрироваться</a>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/utils.js"></script>
+<script>
+  // Redirect if already logged in
+  const existing = Auth.get();
+  if (existing) {
+    if (existing.role === 'admin') window.location.href = '/admin.html';
+    else if (existing.role === 'master') window.location.href = '/master.html';
+    else window.location.href = '/client.html';
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    Utils.hideError('error');
+    const phone = document.getElementById('phone').value.trim();
+    const password = document.getElementById('password').value;
+    try {
+      const data = await api.login({ phone, password });
+      Auth.save(data.user, data.token);
+      if (data.user.role === 'admin') window.location.href = '/admin.html';
+      else if (data.user.role === 'master') window.location.href = '/master.html';
+      else window.location.href = '/client.html';
+    } catch (err) {
+      Utils.showError('error', err.message);
+    }
+  });
+</script>
+</body>
+</html>
