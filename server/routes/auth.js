@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const { createSession } = require('../middleware/auth');
 
@@ -15,7 +16,8 @@ module.exports = (db) => {
     if (existing) {
       return res.status(400).json({ error: 'Пользователь с таким телефоном уже существует' });
     }
-    const result = db.prepare("INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, 'client')").run(name, phone, password);
+    const hashed = bcrypt.hashSync(password, 10);
+    const result = db.prepare("INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, 'client')").run(name, phone, hashed);
     const user = db.prepare('SELECT id, name, phone, role FROM users WHERE id = ?').get(result.lastInsertRowid);
     const token = createSession(user.id);
     res.status(201).json({ user, token });
@@ -26,8 +28,8 @@ module.exports = (db) => {
     if (!phone || !password) {
       return res.status(400).json({ error: 'Телефон и пароль обязательны' });
     }
-    const user = db.prepare('SELECT * FROM users WHERE phone = ? AND password = ?').get(phone, password);
-    if (!user) {
+    const user = db.prepare('SELECT * FROM users WHERE phone = ?').get(phone);
+    if (!user || !bcrypt.compareSync(password, user.password)) {
       return res.status(401).json({ error: 'Неверный телефон или пароль' });
     }
     const token = createSession(user.id);

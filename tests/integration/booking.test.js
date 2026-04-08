@@ -1,5 +1,6 @@
 const request = require('supertest');
 const Database = require('better-sqlite3');
+const bcrypt = require('bcryptjs');
 
 function createTestApp() {
   const db = new Database(':memory:');
@@ -27,7 +28,7 @@ function createTestApp() {
       status TEXT NOT NULL DEFAULT 'active'
     );
   `);
-  db.prepare("INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, ?)").run('Мастер Тест', '+79000000001', 'pass', 'master');
+  db.prepare("INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, ?)").run('Мастер Тест', '+79000000001', bcrypt.hashSync('pass', 10), 'master');
   db.prepare("INSERT INTO services (name, duration, price) VALUES (?, ?, ?)").run('Стрижка', 60, 1500);
 
   const express = require('express');

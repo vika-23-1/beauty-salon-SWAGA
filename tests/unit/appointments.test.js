@@ -1,4 +1,4 @@
-const { validateAppointmentData } = require('../../server/validators/appointments');
+const { validateAppointmentData, isFutureDate } = require('../../server/validators/appointments');
 
 describe('validateAppointmentData', () => {
   test('validates correct appointment data', () => {
@@ -37,5 +37,15 @@ describe('validateAppointmentData', () => {
     };
     const result = validateAppointmentData(data);
     expect(result.valid).toBe(false);
+  });
+});
+
+describe('isFutureDate', () => {
+  test('returns true for a future date', () => {
+    expect(isFutureDate('2099-01-01', '12:00')).toBe(true);
+  });
+
+  test('returns false for a past date', () => {
+    expect(isFutureDate('2000-01-01', '12:00')).toBe(false);
   });
 });

@@ -27,6 +27,10 @@ module.exports = (db) => {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Доступ запрещён' });
     }
+    const active = db.prepare("SELECT id FROM appointments WHERE service_id = ? AND status = 'active'").get(req.params.id);
+    if (active) {
+      return res.status(400).json({ error: 'Нельзя удалить услугу с активными записями' });
+    }
     db.prepare('DELETE FROM services WHERE id = ?').run(req.params.id);
     res.json({ ok: true });
   });

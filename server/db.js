@@ -1,4 +1,5 @@
 const Database = require('better-sqlite3');
+const bcrypt = require('bcryptjs');
 const path = require('path');
 
 const DB_PATH = path.join(__dirname, '..', 'database.db');
@@ -37,9 +38,10 @@ db.exec(`
 
 const usersCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
 if (usersCount.count === 0) {
-  db.prepare("INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, ?)").run('Администратор', '+70000000000', 'admin123', 'admin');
-  db.prepare("INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, ?)").run('Мастер Алексей', '+71111111111', 'master123', 'master');
-  db.prepare("INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, ?)").run('Мастер Мария', '+72222222222', 'master456', 'master');
+  const salt = bcrypt.genSaltSync(10);
+  db.prepare("INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, ?)").run('Администратор', '+70000000000', bcrypt.hashSync('admin123', salt), 'admin');
+  db.prepare("INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, ?)").run('Мастер Алексей', '+71111111111', bcrypt.hashSync('master123', salt), 'master');
+  db.prepare("INSERT INTO users (name, phone, password, role) VALUES (?, ?, ?, ?)").run('Мастер Мария', '+72222222222', bcrypt.hashSync('master456', salt), 'master');
 }
 
 const servicesCount = db.prepare('SELECT COUNT(*) as count FROM services').get();
