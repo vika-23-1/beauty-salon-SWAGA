@@ -1,14 +1,17 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const { requireAuth } = require('../middleware/auth');
 
+const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
+
 module.exports = (db) => {
-  router.get('/', requireAuth(db), (req, res) => {
+  router.get('/', apiLimiter, requireAuth(db), (req, res) => {
     const services = db.prepare('SELECT * FROM services').all();
     res.json(services);
   });
 
-  router.post('/', requireAuth(db), (req, res) => {
+  router.post('/', apiLimiter, requireAuth(db), (req, res) => {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Доступ запрещён' });
     }
@@ -20,7 +23,7 @@ module.exports = (db) => {
     res.status(201).json({ id: result.lastInsertRowid, name, duration, price });
   });
 
-  router.delete('/:id', requireAuth(db), (req, res) => {
+  router.delete('/:id', apiLimiter, requireAuth(db), (req, res) => {
     if (req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Доступ запрещён' });
     }

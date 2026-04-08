@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const { createSession } = require('../middleware/auth');
 
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
+
 module.exports = (db) => {
-  router.post('/register', (req, res) => {
+  router.post('/register', authLimiter, (req, res) => {
     const { name, phone, password } = req.body;
     if (!name || !phone || !password) {
       return res.status(400).json({ error: 'Имя, телефон и пароль обязательны' });
@@ -18,7 +21,7 @@ module.exports = (db) => {
     res.status(201).json({ user, token });
   });
 
-  router.post('/login', (req, res) => {
+  router.post('/login', authLimiter, (req, res) => {
     const { phone, password } = req.body;
     if (!phone || !password) {
       return res.status(400).json({ error: 'Телефон и пароль обязательны' });

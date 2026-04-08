@@ -1,10 +1,13 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const { requireAuth } = require('../middleware/auth');
 const { validateAppointmentData, isTimeSlotTaken } = require('../validators/appointments');
 
+const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200 });
+
 module.exports = (db) => {
-  router.get('/', requireAuth(db), (req, res) => {
+  router.get('/', apiLimiter, requireAuth(db), (req, res) => {
     const { role, id } = req.user;
     let appointments;
     if (role === 'admin') {
@@ -46,7 +49,7 @@ module.exports = (db) => {
     res.json(appointments);
   });
 
-  router.post('/', requireAuth(db), (req, res) => {
+  router.post('/', apiLimiter, requireAuth(db), (req, res) => {
     const data = { ...req.body };
     if (req.user.role === 'client') {
       data.client_id = req.user.id;
@@ -65,7 +68,7 @@ module.exports = (db) => {
     res.status(201).json({ id: result.lastInsertRowid, client_id, master_id, service_id, date, time, status: 'active' });
   });
 
-  router.delete('/:id', requireAuth(db), (req, res) => {
+  router.delete('/:id', apiLimiter, requireAuth(db), (req, res) => {
     const { role, id } = req.user;
     const appointment = db.prepare('SELECT * FROM appointments WHERE id = ?').get(req.params.id);
     if (!appointment) {
