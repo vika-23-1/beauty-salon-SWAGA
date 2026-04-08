@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<body>
+<h1>Мастер</h1>
+<input id="name" placeholder="Имя">
+<button onclick="load()">Мои записи</button>
+<div id="data"></div>
+
+<script>
+async function load(){
+const name=document.getElementById('name').value;
+const res=await fetch('/api/master/'+name);
+const data=await res.json();
+document.getElementById('data').innerHTML=
+data.map(a=>`<p>${a.phone} | ${a.service} | ${a.date}</p>`).join('');
+}
+</script>
+</body>
+</html>
